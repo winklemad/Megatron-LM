@@ -221,8 +221,6 @@ def _collect_owned_parameters(root_module: nn.Module) -> dict[str, nn.Parameter]
             visit(child_module, child_fqn)
 
     visit(root_module, "")
-    if not parameters:
-        raise ValueError("fully_shard requires at least one unowned parameter.")
     return parameters
 
 

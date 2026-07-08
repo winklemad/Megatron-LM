@@ -166,6 +166,30 @@ def test_nested_fully_shard_excludes_child_owned_parameters(distributed_setup):
     assert outer_names == ["bias"]
 
 
+def test_parameterless_parent_with_child_units_trains(distributed_setup):
+    """A parent with no unowned parameters should still root trainable child FSDP units."""
+    world_size = distributed_setup.world_size
+    device = distributed_setup.device
+
+    mesh = init_device_mesh(device.type, (world_size,))
+    torch.manual_seed(5678)
+    model = nn.Sequential(nn.Linear(4, 4, bias=False), nn.Linear(4, 2, bias=False)).to(device)
+
+    fully_shard(model[0], mesh=mesh, placements=_flat_placements())
+    fully_shard(model[1], mesh=mesh, placements=_flat_placements())
+    fully_shard(model, mesh=mesh, placements=_flat_placements())
+
+    assert model.parameter_groups() == ()
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
+    x = torch.randn(3, 4, device=device)
+
+    optimizer.zero_grad(set_to_none=True)
+    loss = model(x).sum()
+    loss.backward()
+    optimizer.step()
+
+
 def test_frozen_parameter_group_does_not_allocate_main_grad(distributed_setup):
     """A non-trainable parameter group should not allocate persistent main gradients."""
     world_size = distributed_setup.world_size
